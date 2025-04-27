@@ -1,0 +1,62 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.special import erfc
+
+# Simulation parameters
+N = 10**6  # Reduced number of bits for faster execution
+Eb_N0_dB = np.arange(0, 61, 1)  # Coarser steps (0-60 dB in 5 dB steps)
+num_points = len(Eb_N0_dB)
+
+# Transmitter
+ip = np.random.rand(N) > 0.5  # Binary data
+s = 2 * ip - 1  # BPSK modulation
+
+# Preallocate results
+nErr_AWGN = np.zeros(num_points)
+nErr_Rayleigh = np.zeros(num_points)
+
+for i, ebno_db in enumerate(Eb_N0_dB):
+    # Noise generation
+    noise = (np.random.randn(N) + 1j*np.random.randn(N)) / np.sqrt(2)
+    h = (np.random.randn(N) + 1j*np.random.randn(N)) / np.sqrt(2)  # Rayleigh coefficients
+    
+    # Noise scaling
+    noise_scale = 10**(-ebno_db/20)
+    
+    # AWGN channel
+    y_AWGN = s + noise_scale * noise.real  # Only real part for AWGN
+    
+    # Rayleigh channel
+    y_Rayleigh = h * s + noise_scale * noise
+    y_equalized = y_Rayleigh / h  # Simple equalization
+    
+    # Detection
+    ipHat_AWGN = np.real(y_AWGN) > 0
+    ipHat_Rayleigh = np.real(y_equalized) > 0
+    
+    # Error counting
+    nErr_AWGN[i] = np.sum(ip != ipHat_AWGN)
+    nErr_Rayleigh[i] = np.sum(ip != ipHat_Rayleigh)
+
+# Calculate BER
+simBer_AWGN = nErr_AWGN / N
+simBer_Rayleigh = nErr_Rayleigh / N
+
+# Theoretical BER
+EbNo_linear = 10**(Eb_N0_dB/10)
+theoryBer_AWGN = 0.5 * erfc(np.sqrt(EbNo_linear))
+theoryBer_Rayleigh = 0.5 * (1 - np.sqrt(EbNo_linear/(1 + EbNo_linear)))
+
+# Plot results
+plt.figure(figsize=(10,6))
+plt.semilogy(Eb_N0_dB, theoryBer_AWGN, 'b-', label='AWGN Theory')
+plt.semilogy(Eb_N0_dB, simBer_AWGN, 'bx', label='AWGN Sim')
+plt.semilogy(Eb_N0_dB, theoryBer_Rayleigh, 'r-', label='Rayleigh Theory')
+plt.semilogy(Eb_N0_dB, simBer_Rayleigh, 'ro', label='Rayleigh Sim')
+plt.grid(True)
+plt.axis([0, 60, 1e-8, 1])
+plt.xlabel('Eb/No (dB)')
+plt.ylabel('Bit Error Rate')
+plt.title('BPSK Performance in AWGN and Rayleigh Channels')
+plt.legend()
+plt.show()
