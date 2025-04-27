@@ -1,0 +1,97 @@
+import numpy as np
+
+def generate_walsh_matrix(n):
+    '''Generate Walsh code matrix of size 2^n x 2^n'''
+    if n == 1:
+        return np.array([[1, 1], [1, -1]])
+    smaller_matrix = generate_walsh_matrix(n - 1)
+    return np.vstack((
+        np.hstack((smaller_matrix, smaller_matrix)),
+        np.hstack((smaller_matrix, -smaller_matrix))
+    ))
+
+def cdma_simulation(num_users=8, intended_bit=1, noise_floor=1e-6):
+    '''Run CDMA simulation with detailed power analysis'''
+    # Generate and display Walsh matrix
+    walsh_matrix = generate_walsh_matrix(int(np.log2(num_users)))
+    print("Walsh Code Matrix:")
+    print(walsh_matrix)
+    print("="*50)
+    
+    # Select intended user
+    intended_index = np.random.randint(0, num_users)
+    print(f"Intended User: {intended_index+1}, Transmitting bit: {intended_bit}")
+    
+    # Create transmitted signal
+    transmitted_signal = intended_bit * walsh_matrix[intended_index].astype(np.float64)
+    
+    # Add Gaussian noise
+    noise = np.random.normal(0, np.sqrt(noise_floor), num_users)
+    noisy_signal = transmitted_signal + noise
+    
+    print("Transmitted Signal (before noise):")
+    print(transmitted_signal)
+    print("\nNoise Added:")
+    print(noise)
+    print("\nReceived Signal (with noise):")
+    print(noisy_signal)
+    print("="*50)
+    
+    # Calculate metrics for all users
+    results = []
+    for i in range(num_users):
+        # Correlation detection
+        correlation = np.dot(noisy_signal, walsh_matrix[i]) / num_users
+        
+        # Signal power (desired component)
+        signal_power = (intended_bit * (i == intended_index)) ** 2
+        
+        # Noise power
+        if i == intended_index:
+            noise_power = np.var(noise)
+        else:
+            interference = intended_bit * np.dot(walsh_matrix[intended_index], walsh_matrix[i]) / num_users
+            noise_power = interference**2 + np.var(noise)
+        
+        # Calculate SNR
+        snr = signal_power / noise_power if noise_power > 0 else float('inf')
+        snr_db = 10 * np.log10(snr) if not np.isinf(snr) else float('inf')
+        
+        results.append({
+            'user': i+1,
+            'type': 'Intended' if i == intended_index else 'Unintended',
+            'correlation': correlation,
+            'signal_power': signal_power,
+            'noise_power': noise_power,
+            'snr_db': snr_db
+        })
+    
+    # Print results
+    print("User\tType\t\tCorrelation\tSignal Power\tNoise Power\tSNR (dB)")
+    print("-"*80)
+    for res in results:
+        print(f"{res['user']}\t{res['type']:12}\t{res['correlation']:+.4f}\t"
+              f"{res['signal_power']:.6f}\t{res['noise_power']:.6f}\t{res['snr_db']:.2f}")
+    
+    # Summary
+    intended = [r for r in results if r['type'] == 'Intended'][0]
+    unintended = [r for r in results if r['type'] == 'Unintended']
+    
+    avg_unintended_snr = np.mean([r['snr_db'] for r in unintended])
+    
+    print("\n" + "="*50)
+    print("SUMMARY RESULTS:")
+    print(f"Intended User: {intended['user']}")
+    print(f" - Correlation: {intended['correlation']:+.4f}")
+    print(f" - SNR: {intended['snr_db']:.2f} dB")
+    print(f" - Signal Power: {intended['signal_power']:.6f}")
+    print(f" - Noise Power: {intended['noise_power']:.6f}")
+    print("\nAverage Unintended User:")
+    print(f" - Avg Correlation: {np.mean([r['correlation'] for r in unintended]):+.6f}")
+    print(f" - Avg SNR: {avg_unintended_snr:.2f} dB")
+    print(f" - Avg Signal Power: {np.mean([r['signal_power'] for r in unintended]):.6f}")
+    print(f" - Avg Noise Power: {np.mean([r['noise_power'] for r in unintended]):.6f}")
+    print("="*50)
+
+# Run simulation
+cdma_simulation(num_users=8, intended_bit=1, noise_floor=1e-6)

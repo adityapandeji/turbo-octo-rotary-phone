@@ -1,0 +1,88 @@
+clear;
+clc;
+
+% Parameters
+N = 10^6; % Number of bits
+rng(100); % Initialize random number generator for reproducibility
+
+% Transmitter
+ip = rand(1, N) > 0.5; % Random bits 0 and 1
+s = 2 * ip - 1;        % BPSK modulation: 0 -> -1, 1 -> 1
+
+% Noise
+n = 1/sqrt(2) * (randn(1, N) + 1j * randn(1, N)); % Complex white Gaussian noise
+
+% Eb/No range
+Eb_NO_dB = -3:10; 
+
+% Preallocate
+nErr_AWGN = zeros(1, length(Eb_NO_dB));
+nErr_Rayleigh = zeros(1, length(Eb_NO_dB));
+
+% Simulation
+for ii = 1:length(Eb_NO_dB)
+    % AWGN Channel
+    y_AWGN = s + 10^(-Eb_NO_dB(ii)/20) * n;
+    
+    % Rayleigh Channel
+    h = 1/sqrt(2) * (randn(1, N) + 1j * randn(1, N)); % Rayleigh fading
+    y_Rayleigh = h .* s + 10^(-Eb_NO_dB(ii)/20) * n;
+    
+    % Equalization
+    y_equalized = y_Rayleigh ./ h;
+    
+    % Receiver
+    ipHat_AWGN = real(y_AWGN) > 0;
+    ipHat_Rayleigh = real(y_equalized) > 0;
+    
+    % Error Counting
+    nErr_AWGN(ii) = sum(ip ~= ipHat_AWGN);
+    nErr_Rayleigh(ii) = sum(ip ~= ipHat_Rayleigh);
+end
+
+% BER Calculation
+simBer_AWGN = nErr_AWGN / N;
+simBer_Rayleigh = nErr_Rayleigh / N;
+
+% Theoretical BERs
+theoryBer_AWGN = 0.5 * erfc(sqrt(10.^(Eb_NO_dB/10)));
+theoryBer_Rayleigh = 0.5 * (1 - sqrt(10.^(Eb_NO_dB/10) ./ (1 + 10.^(Eb_NO_dB/10))));
+
+% ==============================
+% PLOTTING
+% ==============================
+
+% 1. Plot AWGN only
+figure;
+semilogy(Eb_NO_dB, theoryBer_AWGN, 'b.-', 'LineWidth', 1.5); hold on;
+semilogy(Eb_NO_dB, simBer_AWGN, 'mx-', 'LineWidth', 1.5);
+axis([-3 10 10^-5 0.5]);
+grid on;
+legend('Theory (AWGN)', 'Simulation (AWGN)', 'Location', 'southwest');
+xlabel('Eb/No (dB)');
+ylabel('Bit Error Rate (BER)');
+title('Bit Error Rate for BPSK over AWGN Channel');
+
+% 2. Plot Rayleigh only
+figure;
+semilogy(Eb_NO_dB, theoryBer_Rayleigh, 'r.-', 'LineWidth', 1.5); hold on;
+semilogy(Eb_NO_dB, simBer_Rayleigh, 'go-', 'LineWidth', 1.5);
+axis([-3 10 10^-5 0.5]);
+grid on;
+legend('Theory (Rayleigh)', 'Simulation (Rayleigh)', 'Location', 'southwest');
+xlabel('Eb/No (dB)');
+ylabel('Bit Error Rate (BER)');
+title('Bit Error Rate for BPSK over Rayleigh Channel');
+
+% 3. Combined Plot
+figure;
+semilogy(Eb_NO_dB, theoryBer_AWGN, 'b.-', 'LineWidth', 1.5); hold on;
+semilogy(Eb_NO_dB, simBer_AWGN, 'mx-', 'LineWidth', 1.5);
+semilogy(Eb_NO_dB, theoryBer_Rayleigh, 'r.-', 'LineWidth', 1.5);
+semilogy(Eb_NO_dB, simBer_Rayleigh, 'go-', 'LineWidth', 1.5);
+axis([-3 10 10^-5 0.5]);
+grid on;
+legend('Theory (AWGN)', 'Simulation (AWGN)', 'Theory (Rayleigh)', 'Simulation (Rayleigh)', 'Location', 'southwest');
+xlabel('Eb/No (dB)');
+ylabel('Bit Error Rate (BER)');
+title('Bit Error Rate for BPSK over AWGN and Rayleigh Channels');

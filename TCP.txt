@@ -1,0 +1,63 @@
+import socket
+
+def send_file(filename, host='0.0.0.0', port=12345):
+    try:
+        # Create a socket object
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.bind((host, port))
+        server_socket.listen(1)
+        print(f"Server listening on {host}:{port}")
+
+        # Wait for a connection
+        conn, addr = server_socket.accept()
+        print(f"Connected by {addr}")
+
+        # Open the file and send its contents
+        with open(filename, 'rb') as file:
+            print(f"Sending {filename}...")
+            while chunk := file.read(1024):  # Send in chunks
+                conn.sendall(chunk)
+        print(f"File {filename} sent successfully.")
+
+    except FileNotFoundError:
+        print(f"Error: The file {filename} does not exist.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        conn.close()
+        server_socket.close()
+
+# Specify the file to send
+send_file('helloworld.txt')
+
+
+
+
+////////// CLient
+
+import socket
+
+def receive_file(server_ip, filename='received_file.txt', port=12345):
+    try:
+        # Create a socket object
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client_socket.connect((server_ip, port))
+        print(f"Connected to server at {server_ip}:{port}")
+
+        # Receive data from the server
+        with open(filename, 'wb') as file:
+            print(f"Receiving {filename}...")
+            while True:
+                data = client_socket.recv(1024)
+                if not data:
+                    break
+                file.write(data)
+        print(f"File {filename} received successfully.")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        client_socket.close()
+
+# Replace 'SERVER_IP' with actual server IP
+receive_file('192.168.179.162')
